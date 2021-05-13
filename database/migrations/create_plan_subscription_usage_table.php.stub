@@ -21,13 +21,12 @@ class CreatePlanSubscriptionUsageTable extends Migration
             $table->integer('feature_id')->unsigned();
             $table->integer('used')->unsigned();
             $table->dateTime('valid_until')->nullable();
-            $table->string('timezone')->nullable();
             $table->timestamps();
 
             $table->unique(['subscription_id', 'feature_id']);
             $table->foreign('subscription_id')->references('id')->on(config('subby.tables.plan_subscriptions'))
                 ->onDelete('cascade')->onUpdate('cascade');
-            $table->foreign('feature_id')->references('id')->on(config('subby.tables.plan_features'))
+            $table->foreign('feature_id')->references('id')->on(config('subby.tables.plan_subscription_features'))
                 ->onDelete('cascade')->onUpdate('cascade');
         });
     }

@@ -2,6 +2,43 @@
 
 All notable changes to `laravel-subby` will be documented in this file.
 
+## 4.0.0
+
+### New
+
+- Added Plan Subscription Features, this is a snapshot of the features parent plan han at the moment of creation.
+- Added method `isAltered()` on subscription to know if features are the same as in plan.
+
+### Breaking Changes
+
+#### Plans
+
+- Removed `hasGrace()` method from plan and it's database related columns.
+- Removed columns from database that had no logic implemented:
+    - `prorate_day`, `prorate_period`, `prorate_extend_due`, `active_subscribers_limit`, `grace_period`
+      , `grace_interval`, `timezone`
+
+#### Plan subscription
+
+- Dettached plan subscriptions from plans, now they are their own replica of the plan. This makes the legal part of the
+  subscription easier since when someone subscribes to a plan, and then you change the plan, it will affect existing
+  contracts and in some places, changing conditions unilaterally can put you in trouble. Plan is referenced only for
+  reference features.
+    - Now plan subscription clones plan columns `price`, `currency`, `invoice_period`, `invoice_interval` and `tier`.
+      They will stay like that even when you change parent plan prices.
+- Add method `isFree()`.
+- `newSubscription()` method fourth parameter is `$description` instead of `$startDate`. By default, it takes plan's
+  description.
+
+#### Plan subscription usage
+
+- Removed columns from database that had no logic implemented:
+    - `timezone`
+
+#### Plan subscription Schedule
+
+- Now schedules are separated in their own extension, which allows use of Laravel 7.
+
 ## 3.0.2
 
 ## Fix

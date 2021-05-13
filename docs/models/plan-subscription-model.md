@@ -3,40 +3,82 @@
 ## Create a Subscription<a name="create-subscription"></a>
 
 You can subscribe a user (or any model correctly traited) to a plan by using the `newSubscription()` function available
-in the `HasSubscriptions` trait. First, retrieve an instance of your subscriber model, which typically will be your user
-model and an instance of the plan your user is subscribing to. Once you have retrieved the model instance, you may use
-the `newSubscription` method to create the model's subscription.
+in the `HasSubscriptions` trait. First, retrieve an instance of your subscriber's model, which typically will be your
+user model and an instance of the plan your subscriber is subscribing to. Once you have retrieved the model instance,
+you may use the `newSubscription` method to create the model's subscription.
 
 ```php
 $user = User::find(1);
 $plan = Plan::find(1);
 
-$user->newSubscription('main', $plan, 'Main subscription');
+$user->newSubscription('main', $plan, 'Main subscription', 'Customer main subscription');
 ```
 
-The first argument passed to `newSubscription` method should be the identifier tag of the subscription. If your
-application offer a single subscription, you might call this `main` or `primary`. The second argument is the plan
-instance your user is subscribing to and the third argument is a human readable name for your subscription.
+- First argument passed to `newSubscription` method should be the identifier tag of the subscription. If your
+  application offers a single subscription, you might call this `main` or `primary`.
+- Second argument is the plan instance your subscriber is subscribing to.
+- Third argument is a human-readable name for your subscription.
+- Fourth argument is a description.
+- Fifth argument is a start date for the subscription.
 
 ## Change its Plan<a name="change-plan"></a>
 
-You can change subscription plan easily as follows:
+You can change subscription related plan easily as follows:
 
 ```php
 $plan = Plan::find(2);
 $subscription = PlanSubscription::find(1);
 
-// Change subscription plan
+// Change subscription plan clearing usage and synchronizing invoicing periods
 $subscription->changePlan($plan);
+
+// Change subscription plan and keep usage
+$subscription->changePlan($plan, false);
+
+// Change subscription plan, keep usage and invoicing data
+$subscription->changePlan($plan, false, false);
 ```
 
-If both plans (current and new plan) have the same billing frequency (e.g., `invoice_period` and `invoice_interval`) the
-subscription will retain the same billing dates. If the plans don't have the same billing frequency, the subscription
-will have the new plan billing frequency, starting on the day of the change.
+Subscription usage data will be cleared by default, unless `false` is given as second parameter.
 
-_Subscription usage data will be cleared_ by default, unless `false` is given as second parameter.
+If you want the same billing frequency (`invoice_period` and `invoice_interval`) set third parameter to `true`
+and subscription will inherit plan's billing frequency. If you want to keep current subscription invoice intervals, set
+to `false`. By default, invoice details are synchronized with new plan.
 
-Also, if the new plan has a trial period, and it's a new subscription, the trial period will be applied.
+- Plan change will adjust existing features to the ones in the new plan.
+- Change will also remove features attached to old plan.
+- Existent features that where previously attached without plan but exist in the new plan now will use plan values.
+- Features not attached to a plan and nonexistent in new plan will remain the same.
+
+## Change pricing and other details<a name="change-price-and-details"></a>
+
+You can change the price or details without affecting attached features or plan. With this feature you can set prices
+individually for every subscriber.
+
+```php 
+$subscription = $user->subscription('main');
+
+$subscription->description = 'Main description with great discount';
+$subscription->price = 12;
+
+$subscription->save();
+```
+
+### Revert custom subscription changes (resynchronize to plan)
+
+You can revert changes made to subscription with function `syncWithPlan`.
+
+```php 
+// Synchronize price, invoicing and tier with related plan
+$user->subscription('main')->syncPlan();
+
+// Synchronize plan and also features
+$user->subscription('main')->syncPlan(null, true, true);
+```
+
+`syncWithPlan()` accepts 3 parameters. First parameter is a `Plan`, if you want to synchronize with current plan
+(default behaviour), set to `null`. Second is `bool` for synchronizing also invoicing details (period and interval),
+default behaviour is to synchronize `true`. The third one is `bool` to also synchronize features.
 
 ## Subscriber's subscriptions
 
@@ -85,7 +127,7 @@ $user->subscription('main')->recordFeatureUsage('social_profiles');
 
 The `recordFeatureUsage` method accepts 3 parameters: the first one is the feature's tag, the second one is the quantity
 of uses to add (default is `1`), and the third one indicates if the addition should be incremental (default behavior),
-when disabled the usage will be override by the quantity provided. E.g.:
+when disabled the usage will be overridden by the quantity provided. E.g.:
 
 ```php
 // Increment by 1
@@ -112,14 +154,10 @@ $user->subscription('main')->usage()->delete();
 
 ## Check Subscription status<a name="check-subscription-status"></a>
 
-For a subscription to be considered active _one of the following must be `true`_:
+For a subscription to be considered active one of the following must be `true`:
 
 - Subscription has an active trial.
 - Subscription `ends_at` is in the future.
-
-```php
-$user->isSubscribedTo($planId);
-```
 
 Alternatively you can use the following methods available in the subscription model:
 
@@ -128,6 +166,32 @@ $user->subscription('main')->isActive();
 $user->subscription('main')->isCanceled();
 $user->subscription('main')->hasEnded();
 $user->subscription('main')->isOnTrial();
+
+// To know if subscription has the same values as related plan or has been changed
+$user->subscription('main')->isAltered();
+```
+
+## Revert overridden plan subscription features
+
+You can revert all feature changes made to subscription that are related to a plan.
+
+```php 
+// Resynchronize features
+$user->subscription('main')->syncPlanFeatures();
+```
+
+Now all plan features available in subscription's related plan will be reset in subscription feature. If your subscriber
+has attached manually a feature that was not previously available in plan, but now is, your custom subscription feature
+will be related to plan feature and will be overridden with plan's feature details in this synchronization.
+
+### Other<a name="other"></a>
+
+```php 
+// Check if subscription is free
+$user->subscription('main')->isFree();
+
+// Check subscriber to plan
+$user->isSubscribedTo($planId);
 ```
 
 > Canceled subscriptions with an active trial or `ends_at` in the future are considered active.
